@@ -77,7 +77,7 @@
     </div>
 </body>
 <script>
-    
+    const socket = new WebSocket(location.origin.replace("http", "ws"));
 
     const form = document.getElementById("usernameForm");
     const name = document.getElementById("username");
@@ -87,6 +87,9 @@
         if (name.value.trim() === "") {
             return
         }
+
+        console.log(name.value);
+        sessionStorage.setItem("username", name.value)
 
         window.location.href = "game.html";
     }

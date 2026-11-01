@@ -54,6 +54,7 @@ wss.on("connection", (ws) => { // listens for a connection
                     }
                     break;
             }
+
         } catch (error) {
             console.log("Failed to parse incoming message:", error);
         }

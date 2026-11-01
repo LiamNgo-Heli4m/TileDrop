@@ -1,5 +1,12 @@
 <!doctype html>
 <head>
+    <meta charset="utf-8">
+    <title>HexaRoll</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rosarivo:ital@0;1&family=Special+Elite&display=swap" rel="stylesheet">
+
     <style>
         html, body {
             overflow: hidden;
@@ -19,8 +26,9 @@
         canvas {
             background: #F5F5DC;
             display: block;
-            border: none !important;
             outline: none;
+            position: absolute;
+            border: none !important;
         }
 
         img {
@@ -28,32 +36,89 @@
             min-height: 100%;
         }
 
+        #gameBox {
+            display: flex;
+
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            width: 1000px;
+            border: black solid 3px;
+        }
+
+        #canvasHolder {
+            width: 900px;
+            height: 725px;
+
+            display: grid;
+            position: relative;
+            place-items: center;
+            border: none;
+        }
+
+        #canvasHolder > canvas {
+            grid-area: 1 / 1;
+            background: transparent;
+            display: block;
+            outline: none;
+        }
+
+        #canvasBack {
+            z-index: 1;
+            background: #F5F5DC;
+        }
+
+        #canvasFront {
+            z-index: 2;
+            background: transparent;
+        }
+
     </style>
 </head>
 <body>
-    <canvas width="800" height="600" style="border: 1px solid"></canvas>
+    <div id="gameBox">
+        <div id="canvasHolder">
+            <canvas width="900" height="725" style="border: 1px solid" id="canvasBack"></canvas>
+            <canvas width="900" height="725" style="border: 1px solid" id="canvasFront"></canvas>
+        </div>
+    </div>
+
 </body>
 <script>
-    const canvas = document.querySelector("canvas");
-    const ctx = canvas.getContext("2d");
+    const canvasBack = document.getElementById("canvasBack");
+    const bctx = canvasBack.getContext("2d");
+
+    const canvasFront = document.getElementById("canvasFront");
+    const fctx = canvasFront.getContext("2d")
+
     const me = Math.random().toString(36).slice(2);
     const others = {};
     const socket = new WebSocket(location.origin.replace("http", "ws"));
+    const username = sessionStorage.getItem("username");
+
+    const a = 2 * Math.PI / 6;
+    const r = 30;
+    let hexaArray = []
+
+    let currentHoveredHex = null;
+
 
     const getRandomColor = () => {
-        const r = Math.floor(Math.random() * 256);
-        const g = Math.floor(Math.random() * 256);
-        const b = Math.floor(Math.random() * 256);
+        const r = Math.floor((Math.random() * 0.5 + 0.5) * 256);
+        const g = Math.floor((Math.random() * 0.5 + 0.5) * 256);
+        const b = Math.floor((Math.random() * 0.5 + 0.5) * 256);
 
         return `rgb(${r}, ${g}, ${b})`;
     }
 
     const dotColour = getRandomColor();
 
-    canvas.addEventListener("pointermove", (e) => {
+    canvasFront.addEventListener("pointermove", (e) => {
+        const closestHex = checkMousePosition(e)
+        currentHoveredHex = closestHex ? { x: closestHex.xValue + 10, y: closestHex.yValue + 5 } : null;
         const positionData = {
             type: "UPDATE_POSITION",
-            payload: { id: me, x: e.offsetX, y: e.offsetY, colour: dotColour },
+            payload: { id: me, x: e.offsetX, y: e.offsetY, colour: dotColour, name: username },
         }
         if (socket.readyState !== WebSocket.OPEN) return;
         socket.send(JSON.stringify(positionData));
@@ -72,13 +137,11 @@
                     if (socket.readyState !== WebSocket.OPEN) return;
                     socket.send(JSON.stringify(identifier));
                 case "UPDATE_POSITION":
-                    const { id, x, y, colour } = data.payload;
-                    others[id] = { x, y, colour };
+                    const { id, x, y, colour, name } = data.payload;
+                    others[id] = { x, y, colour, name };
                     break;
                 case "DELETE_DISCONNECTED_ID":
                     const { deleteID } = data.payload;
-                    console.log(deleteID);
-                    console.log(others);
                     delete others[deleteID];
             }
         } catch (error) {
@@ -86,34 +149,48 @@
         }
     });
 
+    let isBackgroundDrawn;
+    function drawBg() {
+        if (isBackgroundDrawn) { return;}
+
+        drawGrid(canvasBack.width, canvasBack.height);
+        isBackgroundDrawn = true;
+    }
+    drawBg();
+
     function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        fctx.clearRect(0, 0, canvasFront.width, canvasFront.height);
+        if (currentHoveredHex) {
+            drawHexagon(fctx, currentHoveredHex.x, currentHoveredHex.y, true);
+        }
         drawOtherPlayers()
-        drawGrid(canvas.width, canvas.height);
         requestAnimationFrame(draw);
     }
 
     function drawOtherPlayers() {
-        for (const { x, y, colour } of Object.values(others)) {
-            ctx.beginPath();
-            ctx.arc(x, y, 5, 0, Math.PI * 2);
-            ctx.fillStyle = colour;
-            ctx.fill();
+        for (const { x, y, colour, name } of Object.values(others)) {
+            fctx.beginPath();
+            fctx.arc(x, y, 5, 0, Math.PI * 2);
+            fctx.fillStyle = colour;
+            fctx.fill();
+
+            fctx.font = "10px JetBrains Mono";
+            fctx.fillText(name, x - (name.length / 3) * 10, y + 20)
         }
     }
 
-    const a = 2 * Math.PI / 6;
-    const r = 30;
-
     function drawGrid(width, height) {
-        for (let y = r; y + r * (1 + Math.sin(a)) < height; y += r * Math.sin(a)) {
+        for (let y = r; y + r < height; y += r * Math.sin(a)) {
             for (let x = r, j = 0; x + r < width; x += r * (1 + Math.cos(a)), y += (-1) ** j++ * r * Math.sin(a)) {
-                drawHexagon(x, y);
+
+                const posObj = {xValue: x, yValue: y}
+                hexaArray.push(posObj);
+                drawHexagon(bctx, x + 10, y + 5, false);
             }
         }
     }
 
-    function drawHexagon(x, y) {
+    function drawHexagon(ctx, x, y, isHovered) {
         ctx.beginPath();
         for (var i = 0; i < 6; i++) {
             ctx.lineTo(x + r * Math.cos(a * i), y + r * Math.sin(a * i));
@@ -121,6 +198,39 @@
         ctx.closePath();
         ctx.lineWidth = 3;
         ctx.stroke();
+        if (isHovered) {
+            fctx.fillStyle = "black";
+            ctx.fill()
+        }
+    }
+
+    function checkMousePosition(event) {
+        const rect = canvasFront.getBoundingClientRect();
+
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+
+        let closestHexPos;
+
+        for (const hex of hexaArray) {
+            const x = hex.xValue
+            const y = hex.yValue
+            const distance = calculatePointDistance(x, y, mouseX, mouseY);
+
+            if (typeof closestHexPos !== "undefined" && closestHexPos !== null ) {
+                if (distance < closestHexPos.distance) {
+                    closestHexPos = { xValue: x, yValue: y, distance: distance };
+                }
+            } else {
+                closestHexPos = { xValue: x, yValue: y, distance: distance };
+            }
+        }
+
+        return closestHexPos;
+    }
+
+    function calculatePointDistance(x1, y1, x2, y2) {
+        return Math.sqrt((x2 - x1)**2 + (y2 - y1)**2);
     }
 
     draw();
