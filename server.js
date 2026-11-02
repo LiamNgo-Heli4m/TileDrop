@@ -10,6 +10,7 @@ const PORT = 3000;
 
 let idArray = []
 
+const rooms = new Map(); // btw map is dictionary btw
 
 app.use(express.static(path.join(__dirname, "public")));
 
