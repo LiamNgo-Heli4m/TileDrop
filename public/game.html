@@ -98,27 +98,39 @@
 
     const a = 2 * Math.PI / 6;
     const r = 30;
-    let hexaArray = []
+    let hexArray = []
 
     let currentHoveredHex = null;
+    let otherHoveredHexes = { }
 
+    const playerColorPalettes = [
+        { base: "#D32F2F", light: "#FF8A80", hover: "#FFCDD2" },
+        { base: "#1976D2", light: "#64B5F6", hover: "#BBDEFB" },
+        { base: "#388E3C", light: "#81C784", hover: "#C8E6C9" },
+        { base: "#F57C00", light: "#FFB74D", hover: "#FFE0B2" },
+        { base: "#7B1FA2", light: "#BA68C8", hover: "#E1BEE7" },
+        { base: "#0097A7", light: "#4DD0E1", hover: "#B2EBF2" },
+        { base: "#C2185B", light: "#F06292", hover: "#F8BBD0" },
+        { base: "#5D4037", light: "#A1887F", hover: "#D7CCC8" },
+        { base: "#FBC02D", light: "#FFEE58", hover: "#FFF59D" },
+        { base: "#455A64", light: "#90A4AE", hover: "#CFD8DC" },
+        { base: "#0D47A1", light: "#42A5F5", hover: "#90CAF9" },
+        { base: "#689F38", light: "#AED581", hover: "#DCEDC8" },
+        { base: "#AD1457", light: "#EC407A", hover: "#FCE4EC" },
+        { base: "#3F51B5", light: "#7986CB", hover: "#C5CAE9" },
+        { base: "#00796B", light: "#4DB6AC", hover: "#B2DFDB" },
+        { base: "#E64A19", light: "#FF8A65", hover: "#FFCCBC" }
+    ];
 
-    const getRandomColor = () => {
-        const r = Math.floor((Math.random() * 0.5 + 0.5) * 256);
-        const g = Math.floor((Math.random() * 0.5 + 0.5) * 256);
-        const b = Math.floor((Math.random() * 0.5 + 0.5) * 256);
-
-        return `rgb(${r}, ${g}, ${b})`;
-    }
-
-    const dotColour = getRandomColor();
+    const selectedPallete = playerColorPalettes[Math.floor(Math.random() * playerColorPalettes.length)];
+    const dotColour = selectedPallete.base
 
     canvasFront.addEventListener("pointermove", (e) => {
         const closestHex = checkMousePosition(e)
-        currentHoveredHex = closestHex ? { x: closestHex.xValue + 10, y: closestHex.yValue + 5 } : null;
+        currentHoveredHex = closestHex ? { x: closestHex.xValue + 10, y: closestHex.yValue + 5, color: selectedPallete.hover } : null;
         const positionData = {
             type: "UPDATE_POSITION",
-            payload: { id: me, x: e.offsetX, y: e.offsetY, colour: dotColour, name: username },
+            payload: { id: me, x: e.offsetX, y: e.offsetY, colour: dotColour, name: username, hoveredHex: currentHoveredHex },
         }
         if (socket.readyState !== WebSocket.OPEN) return;
         socket.send(JSON.stringify(positionData));
@@ -137,8 +149,9 @@
                     if (socket.readyState !== WebSocket.OPEN) return;
                     socket.send(JSON.stringify(identifier));
                 case "UPDATE_POSITION":
-                    const { id, x, y, colour, name } = data.payload;
+                    const { id, x, y, colour, name, hoveredHex } = data.payload;
                     others[id] = { x, y, colour, name };
+                    otherHoveredHexes[id] = hoveredHex;
                     break;
                 case "DELETE_DISCONNECTED_ID":
                     const { deleteID } = data.payload;
@@ -160,8 +173,10 @@
 
     function draw() {
         fctx.clearRect(0, 0, canvasFront.width, canvasFront.height);
-        if (currentHoveredHex) {
-            drawHexagon(fctx, currentHoveredHex.x, currentHoveredHex.y, true);
+        if (currentHoveredHex) { drawHexagon(fctx, currentHoveredHex.x, currentHoveredHex.y, selectedPallete.hover, true); }
+        for (const hexobj of Object.values(otherHoveredHexes)) {
+            console.log(hexobj);
+            drawHexagon( fctx, hexobj.x, hexobj.y, hexobj.color, true );
         }
         drawOtherPlayers()
         requestAnimationFrame(draw);
@@ -184,24 +199,24 @@
             for (let x = r, j = 0; x + r < width; x += r * (1 + Math.cos(a)), y += (-1) ** j++ * r * Math.sin(a)) {
 
                 const posObj = {xValue: x, yValue: y}
-                hexaArray.push(posObj);
-                drawHexagon(bctx, x + 10, y + 5, false);
+                hexArray.push(posObj);
+                drawHexagon(bctx, x + 10, y + 5, selectedPallete.hover, false);
             }
         }
     }
 
-    function drawHexagon(ctx, x, y, isHovered) {
+    function drawHexagon(ctx, x, y, color, isHovered) {
         ctx.beginPath();
         for (var i = 0; i < 6; i++) {
             ctx.lineTo(x + r * Math.cos(a * i), y + r * Math.sin(a * i));
         }
         ctx.closePath();
-        ctx.lineWidth = 3;
-        ctx.stroke();
         if (isHovered) {
-            fctx.fillStyle = "black";
+            fctx.fillStyle = color;
             ctx.fill()
         }
+        ctx.lineWidth = 3;
+        ctx.stroke();
     }
 
     function checkMousePosition(event) {
@@ -212,7 +227,7 @@
 
         let closestHexPos;
 
-        for (const hex of hexaArray) {
+        for (const hex of hexArray) {
             const x = hex.xValue
             const y = hex.yValue
             const distance = calculatePointDistance(x, y, mouseX, mouseY);
