@@ -32,7 +32,6 @@ const wss = new WebSocketServer({ server }); // creates a WebSocketServer around
 
 // .on is sort of like a listener that listens for the event stated in its first parameter
 wss.on("connection", (ws) => { // listens for a connection
-
     const requestID = { type: "REQUEST_CLIENT_ID" }
 
     ws.send(JSON.stringify(requestID));
@@ -54,8 +53,19 @@ wss.on("connection", (ws) => { // listens for a connection
                         }
                     }
                     break;
-            }
+                case "CREATE_ROOM":
+                    const roomId = makeID();
+                    const { clientId } = data.payload;
+                    const roomArray = [clientId];
+                    rooms.set(roomId, roomArray);
 
+                    const returnRoomId = {
+                        type: "RETURN_ROOM_ID",
+                        payload: { id: roomId }
+                    }
+
+                    ws.send(JSON.stringify(returnRoomId));
+            }
         } catch (error) {
             console.log("Failed to parse incoming message:", error);
         }
@@ -75,5 +85,15 @@ wss.on("connection", (ws) => { // listens for a connection
         }
     })
 });
+
+function makeID() {
+    var result           = '';
+    var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    var charactersLength = characters.length;
+    for ( var i = 0; i < 4; i++ ) {
+        result += characters.charAt(Math.floor(Math.random() * charactersLength));
+    }
+    return result;
+}
 
 server.listen(process.env.PORT || 3000);

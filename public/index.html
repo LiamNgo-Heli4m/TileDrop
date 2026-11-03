@@ -177,7 +177,7 @@
         <div id="title"> <h1> <span>HexaDraw</span> </h1> </div>
         <div id="mainMenuContainer">
             <div id="left">
-                <form id="usernameForm" onsubmit="onUsernameSubmit(event)">
+                <form id="usernameForm" onsubmit="cancelUsername(event)">
                     <label>Your Name </label> <br>
                     <input type="text" id="username" name="username">
                 </form>
@@ -201,20 +201,49 @@
 </body>
 <script>
     const socket = new WebSocket(location.origin.replace("http", "ws"));
-
+    const me = Math.random().toString(36).slice(2);
     const form = document.getElementById("usernameForm");
     const name = document.getElementById("username");
 
-    function onUsernameSubmit(event) {
+    const createButton = document.getElementById("createRoomButton");
+
+    function cancelUsername(event) {
         event.preventDefault();
+    }
+
+    createButton.addEventListener("click", onCreateRoom);
+
+    function onCreateRoom() {
         if (name.value.trim() === "") {
             return
         }
 
+        const createRoom = {
+            type: "CREATE_ROOM",
+            payload: { clientId: me }
+        }
+
+        socket.send(JSON.stringify(createRoom));
+
         console.log(name.value);
         sessionStorage.setItem("username", name.value)
+        sessionStorage.setItem("id", me)
 
         window.location.href = "game.html";
     }
+
+    socket.addEventListener("message", (e) => {
+        try {
+            const data = JSON.parse(e.data);
+
+            switch (data.type) {
+                case "RETURN_ROOM_ID":
+                    const { id } = data.payload;
+                    sessionStorage.setItem("roomId", id);
+            }
+        } catch (e) {
+            console.log("Failed to parse incoming message:", error);
+        }
+    });
 
 </script>
