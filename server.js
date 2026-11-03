@@ -40,6 +40,7 @@ wss.on("connection", (ws) => { // listens for a connection
         try {
             const data = JSON.parse(rawData);
 
+            // PLEASE remember to break after switch statements
             switch (data.type) {
                 case "RETURN_CLIENT_ID":
                     const { id } = data.payload
@@ -65,6 +66,27 @@ wss.on("connection", (ws) => { // listens for a connection
                     }
 
                     ws.send(JSON.stringify(returnRoomId));
+
+                    console.log(rooms)
+                    break;
+
+                case "JOIN_ROOM":
+                    const { joinRoomId, joinClientId } = data.payload;
+
+                    if (rooms.has(joinRoomId)) {
+                        const joinRoomArray = rooms.get(joinRoomId);
+                        joinRoomArray.push(joinClientId);
+                    }
+
+                    const confirmJoinRoom = {
+                        type: "CONFIRM_JOIN_ROOM",
+                        payload: { roomId: joinRoomId }
+                    }
+
+                    ws.send(JSON.stringify(confirmJoinRoom));
+
+                    console.log(rooms)
+                    break;
             }
         } catch (error) {
             console.log("Failed to parse incoming message:", error);

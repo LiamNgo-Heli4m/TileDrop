@@ -201,7 +201,6 @@
         fctx.clearRect(0, 0, canvasFront.width, canvasFront.height);
         if (currentHoveredHex) { drawHexagon(fctx, currentHoveredHex.x, currentHoveredHex.y, selectedPallete.hover, true); }
         for (const hexobj of Object.values(otherHoveredHexes)) {
-            console.log(hexobj);
             drawHexagon( fctx, hexobj.x, hexobj.y, hexobj.color, true );
         }
         drawOtherPlayers()

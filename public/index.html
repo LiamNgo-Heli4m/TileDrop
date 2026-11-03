@@ -206,12 +206,28 @@
     const name = document.getElementById("username");
 
     const createButton = document.getElementById("createRoomButton");
+    const joinByCodeButton = document.getElementById("joinByCodeButton");
+    const roomId = document.getElementById("roomCode");
 
     function cancelUsername(event) {
         event.preventDefault();
     }
 
     createButton.addEventListener("click", onCreateRoom);
+    joinByCodeButton.addEventListener("click", onJoinByCode);
+
+    function onJoinByCode() {
+        if (name.value.trim() === "") {
+            return
+        }
+
+        const joinRoom = {
+            type: "JOIN_ROOM",
+            payload: { joinRoomId: roomId.value, joinClientId: me },
+        }
+
+        socket.send(JSON.stringify(joinRoom));
+    }
 
     function onCreateRoom() {
         if (name.value.trim() === "") {
@@ -225,21 +241,28 @@
 
         socket.send(JSON.stringify(createRoom));
 
-        console.log(name.value);
         sessionStorage.setItem("username", name.value)
         sessionStorage.setItem("id", me)
 
-        window.location.href = "game.html";
+        // window.location.href = "game.html";
     }
 
     socket.addEventListener("message", (e) => {
         try {
             const data = JSON.parse(e.data);
-
             switch (data.type) {
                 case "RETURN_ROOM_ID":
                     const { id } = data.payload;
                     sessionStorage.setItem("roomId", id);
+                    window.location.href = "game.html";
+                    break;
+                case "CONFIRM_JOIN_ROOM":
+                    const { roomId } = data.payload;
+                    sessionStorage.setItem("username", name.value)
+                    sessionStorage.setItem("id", me)
+                    sessionStorage.setItem("roomId", roomId)
+                    window.location.href = "game.html";
+                    break;
             }
         } catch (e) {
             console.log("Failed to parse incoming message:", error);
