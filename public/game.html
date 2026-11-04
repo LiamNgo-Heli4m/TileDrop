@@ -124,7 +124,8 @@
     let hexArray = []
 
     const roomCode = document.getElementById("roomCodeHolder");
-    roomCode.textContent = sessionStorage.getItem("roomId");
+    const roomId = sessionStorage.getItem("roomId");
+    roomCode.textContent = roomId;
 
     let currentHoveredHex = null;
     let otherHoveredHexes = { }
@@ -156,11 +157,20 @@
         currentHoveredHex = closestHex ? { x: closestHex.xValue + 10, y: closestHex.yValue + 5, color: selectedPallete.hover } : null;
         const positionData = {
             type: "UPDATE_POSITION",
-            payload: { id: me, x: e.offsetX, y: e.offsetY, colour: dotColour, name: username, hoveredHex: currentHoveredHex },
+            payload: { id: me, x: e.offsetX, y: e.offsetY, colour: dotColour, name: username, hoveredHex: currentHoveredHex, clientRoomId: roomId },
         }
         if (socket.readyState !== WebSocket.OPEN) return;
         socket.send(JSON.stringify(positionData));
     });
+
+    socket.onopen = () => {
+        const requestSocketReconnection = {
+            type: "REQUEST_SOCKET_RECONNECTION",
+            payload: { reconnectRequestId: me, reconnectRequestRoomId: roomId },
+        }
+
+        socket.send(JSON.stringify(requestSocketReconnection));
+    }
 
     socket.addEventListener("message", (e) => {
         try {
@@ -174,6 +184,7 @@
                     }
                     if (socket.readyState !== WebSocket.OPEN) return;
                     socket.send(JSON.stringify(identifier));
+                    break;
                 case "UPDATE_POSITION":
                     const { id, x, y, colour, name, hoveredHex } = data.payload;
                     others[id] = { x, y, colour, name };

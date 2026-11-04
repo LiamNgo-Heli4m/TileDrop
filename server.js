@@ -48,16 +48,34 @@ wss.on("connection", (ws) => { // listens for a connection
                     idArray.push(id)
                     break;
                 case "UPDATE_POSITION":
-                    for (const client of wss.clients) {
-                        if (client !== ws && client.readyState === WebSocket.OPEN) {
-                            client.send(JSON.stringify(data)); // sends the data to every other client APART from the person who sent it
+                    const { clientRoomId } = data.payload
+                    const clientRoomArray = rooms.get(clientRoomId)
+                    for (const client of clientRoomArray) {
+                        const clientSocket = client.socket
+                        if (clientSocket !== ws && clientSocket.readyState === WebSocket.OPEN) {
+                            clientSocket.send(JSON.stringify(data)); // sends the data to every other client APART from the person who sent it
                         }
                     }
                     break;
+
+                case "REQUEST_SOCKET_RECONNECTION":
+                    const { reconnectRequestId, reconnectRequestRoomId} = data.payload;
+                    if (rooms.has(reconnectRequestRoomId)) {
+                        const roomArray = rooms.get(reconnectRequestRoomId);
+                        for (const room of roomArray) {
+                            if (room.id === reconnectRequestId) {
+                                room.socket = ws
+                            }
+                        }
+                    }
+
+                // this system has to use the game.html's ws instead of index.html
+                // apparently it resets, and since it does, the ws reference doesnt point correctly, since the index.html ws has technically closed
+                // the big idea here is to store the clients id
                 case "CREATE_ROOM":
                     const roomId = makeID();
                     const { clientId } = data.payload;
-                    const roomArray = [clientId];
+                    const roomArray = [{ socket: ws, id: clientId}];
                     rooms.set(roomId, roomArray);
 
                     const returnRoomId = {
@@ -67,7 +85,6 @@ wss.on("connection", (ws) => { // listens for a connection
 
                     ws.send(JSON.stringify(returnRoomId));
 
-                    console.log(rooms)
                     break;
 
                 case "JOIN_ROOM":
@@ -75,17 +92,15 @@ wss.on("connection", (ws) => { // listens for a connection
 
                     if (rooms.has(joinRoomId)) {
                         const joinRoomArray = rooms.get(joinRoomId);
-                        joinRoomArray.push(joinClientId);
+                        joinRoomArray.push({ ws, joinClientId });
+
+                        const confirmJoinRoom = {
+                            type: "CONFIRM_JOIN_ROOM",
+                            payload: { roomId: joinRoomId }
+                        }
+
+                        ws.send(JSON.stringify(confirmJoinRoom));
                     }
-
-                    const confirmJoinRoom = {
-                        type: "CONFIRM_JOIN_ROOM",
-                        payload: { roomId: joinRoomId }
-                    }
-
-                    ws.send(JSON.stringify(confirmJoinRoom));
-
-                    console.log(rooms)
                     break;
             }
         } catch (error) {
