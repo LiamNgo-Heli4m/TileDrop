@@ -30,6 +30,8 @@ const server = http.createServer(app)
 const wss = new WebSocketServer({ server }); // creates a WebSocketServer around the http server
 // wss allows for a clean two directional connection and communication, much faster than just http
 
+let hexaArray;
+
 // .on is sort of like a listener that listens for the event stated in its first parameter
 wss.on("connection", (ws) => { // listens for a connection
     const requestID = { type: "REQUEST_CLIENT_ID" }
@@ -42,6 +44,10 @@ wss.on("connection", (ws) => { // listens for a connection
 
             // PLEASE remember to break after switch statements
             switch (data.type) {
+                case "HEXAGRID_INFO":
+                    const { hexaGrid } = data.payload;
+
+                    break;
                 case "RETURN_CLIENT_ID":
                     const { id } = data.payload
                     ws.clientId = id
@@ -50,6 +56,7 @@ wss.on("connection", (ws) => { // listens for a connection
                 case "UPDATE_POSITION":
                     const { clientRoomId } = data.payload
                     const clientRoomArray = rooms.get(clientRoomId)
+                    console.log("clientRoomArray", clientRoomArray)
                     for (const client of clientRoomArray) {
                         const clientSocket = client.socket
                         if (clientSocket !== ws && clientSocket.readyState === WebSocket.OPEN) {
@@ -68,6 +75,7 @@ wss.on("connection", (ws) => { // listens for a connection
                             }
                         }
                     }
+                break;
 
                 // this system has to use the game.html's ws instead of index.html
                 // apparently it resets, and since it does, the ws reference doesnt point correctly, since the index.html ws has technically closed
@@ -92,7 +100,7 @@ wss.on("connection", (ws) => { // listens for a connection
 
                     if (rooms.has(joinRoomId)) {
                         const joinRoomArray = rooms.get(joinRoomId);
-                        joinRoomArray.push({ ws, joinClientId });
+                        joinRoomArray.push({ socket: ws, id: joinClientId });
 
                         const confirmJoinRoom = {
                             type: "CONFIRM_JOIN_ROOM",

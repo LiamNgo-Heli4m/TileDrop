@@ -121,7 +121,7 @@
 
     const a = 2 * Math.PI / 6;
     const r = 30;
-    let hexArray = []
+    let hexPosArray = []
 
     const roomCode = document.getElementById("roomCodeHolder");
     const roomId = sessionStorage.getItem("roomId");
@@ -129,6 +129,8 @@
 
     let currentHoveredHex = null;
     let otherHoveredHexes = { }
+    let selectedHex = null;
+    let moveableHexes = [ ]
 
     const playerColorPalettes = [
         { base: "#D32F2F", light: "#FF8A80", hover: "#FFCDD2" },
@@ -169,6 +171,14 @@
             payload: { reconnectRequestId: me, reconnectRequestRoomId: roomId },
         }
 
+        const sendHexaGridInformation = {
+            type: "HEXAGRID_INFO",
+            payload: { hexaGrid: hexPosArray },
+        }
+
+        console.log(sendHexaGridInformation);
+        socket.send(JSON.stringify(sendHexaGridInformation));
+
         socket.send(JSON.stringify(requestSocketReconnection));
     }
 
@@ -186,6 +196,7 @@
                     socket.send(JSON.stringify(identifier));
                     break;
                 case "UPDATE_POSITION":
+                    console.log(data)
                     const { id, x, y, colour, name, hoveredHex } = data.payload;
                     others[id] = { x, y, colour, name };
                     otherHoveredHexes[id] = hoveredHex;
@@ -199,11 +210,17 @@
         }
     });
 
+    document.addEventListener("click", (e) => {
+        selectedHex = currentHoveredHex;
+        movableHexes.push()
+    })
+
     let isBackgroundDrawn;
     function drawBg() {
         if (isBackgroundDrawn) { return;}
 
         drawGrid(canvasBack.width, canvasBack.height);
+
         isBackgroundDrawn = true;
     }
     drawBg();
@@ -211,6 +228,7 @@
     function draw() {
         fctx.clearRect(0, 0, canvasFront.width, canvasFront.height);
         if (currentHoveredHex) { drawHexagon(fctx, currentHoveredHex.x, currentHoveredHex.y, selectedPallete.hover, true); }
+        if (selectedHex) { drawHexagon(fctx, selectedHex.x, selectedHex.y, selectedPallete.base, true); }
         for (const hexobj of Object.values(otherHoveredHexes)) {
             drawHexagon( fctx, hexobj.x, hexobj.y, hexobj.color, true );
         }
@@ -232,13 +250,18 @@
 
     function drawGrid(width, height) {
         for (let y = r; y + r < height; y += r * Math.sin(a)) {
+            const currentRow = []
             for (let x = r, j = 0; x + r < width; x += r * (1 + Math.cos(a)), y += (-1) ** j++ * r * Math.sin(a)) {
 
                 const posObj = {xValue: x, yValue: y}
-                hexArray.push(posObj);
+                currentRow.push(posObj)
                 drawHexagon(bctx, x + 10, y + 5, selectedPallete.hover, false);
             }
+
+            hexPosArray.push(currentRow);
         }
+
+        console.log(hexPosArray);
     }
 
     function drawHexagon(ctx, x, y, color, isHovered) {
@@ -263,17 +286,19 @@
 
         let closestHexPos;
 
-        for (const hex of hexArray) {
-            const x = hex.xValue
-            const y = hex.yValue
-            const distance = calculatePointDistance(x, y, mouseX, mouseY);
+        for (const hexArray of hexPosArray) {
+            for (const hex of hexArray) {
+                const x = hex.xValue
+                const y = hex.yValue
+                const distance = calculatePointDistance(x, y, mouseX, mouseY);
 
-            if (typeof closestHexPos !== "undefined" && closestHexPos !== null ) {
-                if (distance < closestHexPos.distance) {
+                if (typeof closestHexPos !== "undefined" && closestHexPos !== null ) {
+                    if (distance < closestHexPos.distance) {
+                        closestHexPos = { xValue: x, yValue: y, distance: distance };
+                    }
+                } else {
                     closestHexPos = { xValue: x, yValue: y, distance: distance };
                 }
-            } else {
-                closestHexPos = { xValue: x, yValue: y, distance: distance };
             }
         }
 
