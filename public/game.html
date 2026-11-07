@@ -176,7 +176,6 @@
             payload: { hexaGrid: hexPosArray },
         }
 
-        console.log(sendHexaGridInformation);
         socket.send(JSON.stringify(sendHexaGridInformation));
 
         socket.send(JSON.stringify(requestSocketReconnection));
@@ -196,7 +195,6 @@
                     socket.send(JSON.stringify(identifier));
                     break;
                 case "UPDATE_POSITION":
-                    console.log(data)
                     const { id, x, y, colour, name, hoveredHex } = data.payload;
                     others[id] = { x, y, colour, name };
                     otherHoveredHexes[id] = hoveredHex;
@@ -212,8 +210,43 @@
 
     document.addEventListener("click", (e) => {
         selectedHex = currentHoveredHex;
-        movableHexes.push()
+        moveableHexes = acquireSurroundingHexes(selectedHex);
     })
+
+    function acquireSurroundingHexes(selectedHex) {
+        const hexArray = []
+        const yPos = Math.round(selectedHex.y) - 5; // 5 cuz the y (and x but x doesnt matter) values are offsetted
+        let isEven = false
+        for (const array of hexPosArray) {
+            const hexodd = array[1]
+            const hexeven = array[0]
+            if (Math.round(hexodd.yValue) === yPos || Math.round(hexeven.yValue) === yPos) {
+                isEven = Math.round(hexodd.yValue) !== yPos;
+                const id = array.findIndex(hex => hex.xValue === selectedHex.x - 10);
+                const arrayId = hexPosArray.indexOf(array)
+
+                const arrayAbove = hexPosArray[arrayId - 1]
+                const arrayBelow = hexPosArray[arrayId + 1]
+
+                hexArray.push(array[id-1]);
+                hexArray.push(array[id+1]);
+                hexArray.push(arrayAbove ? arrayAbove[id] : null);
+                hexArray.push(arrayBelow ? arrayBelow[id] : null);
+
+                if (isEven) {
+                    hexArray.push(arrayAbove ? arrayAbove[id - 1] : null);
+                    hexArray.push(arrayAbove ? arrayAbove[id + 1] : null);
+                } else {
+                    hexArray.push(arrayBelow ? arrayBelow[id - 1] : null);
+                    hexArray.push(arrayBelow ? arrayBelow[id + 1] : null);
+                }
+
+                break;
+            }
+        }
+
+        return hexArray;
+    }
 
     let isBackgroundDrawn;
     function drawBg() {
@@ -231,6 +264,9 @@
         if (selectedHex) { drawHexagon(fctx, selectedHex.x, selectedHex.y, selectedPallete.base, true); }
         for (const hexobj of Object.values(otherHoveredHexes)) {
             drawHexagon( fctx, hexobj.x, hexobj.y, hexobj.color, true );
+        }
+        for (const hex of moveableHexes) {
+            if (hex) { drawHexagon(fctx, hex.xValue + 10, hex.yValue + 5, selectedPallete.light, true); }
         }
         drawOtherPlayers()
         requestAnimationFrame(draw);
@@ -264,13 +300,13 @@
         console.log(hexPosArray);
     }
 
-    function drawHexagon(ctx, x, y, color, isHovered) {
+    function drawHexagon(ctx, x, y, color, fill) {
         ctx.beginPath();
         for (var i = 0; i < 6; i++) {
             ctx.lineTo(x + r * Math.cos(a * i), y + r * Math.sin(a * i));
         }
         ctx.closePath();
-        if (isHovered) {
+        if (fill) {
             fctx.fillStyle = color;
             ctx.fill()
         }
