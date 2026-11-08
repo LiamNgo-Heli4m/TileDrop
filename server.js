@@ -53,10 +53,9 @@ wss.on("connection", (ws) => { // listens for a connection
                     ws.clientId = id
                     idArray.push(id)
                     break;
-                case "UPDATE_POSITION":
+                case "UPDATE_MOUSE_POSITION":
                     const { clientRoomId } = data.payload
                     const clientRoomArray = rooms.get(clientRoomId)
-                    console.log("clientRoomArray", clientRoomArray)
                     for (const client of clientRoomArray) {
                         const clientSocket = client.socket
                         if (clientSocket !== ws && clientSocket.readyState === WebSocket.OPEN) {

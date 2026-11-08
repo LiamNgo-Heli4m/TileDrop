@@ -42,14 +42,14 @@
 
             align-items: center;
             justify-content: center;
-            height: 800px;
+            height: 1200px;
             width: 1000px;
             border: black solid 3px;
         }
 
         #canvasHolder {
             width: 900px;
-            height: 725px;
+            height: 900px;
 
             display: grid;
             position: relative;
@@ -100,8 +100,8 @@
     <div id="gameHolder">
         <div id="gameBox">
             <div id="canvasHolder">
-                <canvas width="900" height="725" style="border: 1px solid" id="canvasBack"></canvas>
-                <canvas width="900" height="725" style="border: 1px solid" id="canvasFront"></canvas>
+                <canvas width="900" height="700" style="border: 1px solid" id="canvasBack"></canvas>
+                <canvas width="900" height="700" style="border: 1px solid" id="canvasFront"></canvas>
             </div>
         </div>
     </div>
@@ -158,7 +158,7 @@
         const closestHex = checkMousePosition(e)
         currentHoveredHex = closestHex ? { x: closestHex.xValue + 10, y: closestHex.yValue + 5, color: selectedPallete.hover } : null;
         const positionData = {
-            type: "UPDATE_POSITION",
+            type: "UPDATE_MOUSE_POSITION",
             payload: { id: me, x: e.offsetX, y: e.offsetY, colour: dotColour, name: username, hoveredHex: currentHoveredHex, clientRoomId: roomId },
         }
         if (socket.readyState !== WebSocket.OPEN) return;
@@ -194,7 +194,7 @@
                     if (socket.readyState !== WebSocket.OPEN) return;
                     socket.send(JSON.stringify(identifier));
                     break;
-                case "UPDATE_POSITION":
+                case "UPDATE_MOUSE_POSITION":
                     const { id, x, y, colour, name, hoveredHex } = data.payload;
                     others[id] = { x, y, colour, name };
                     otherHoveredHexes[id] = hoveredHex;
@@ -220,9 +220,13 @@
         for (const array of hexPosArray) {
             const hexodd = array[1]
             const hexeven = array[0]
-            if (Math.round(hexodd.yValue) === yPos || Math.round(hexeven.yValue) === yPos) {
-                isEven = Math.round(hexodd.yValue) !== yPos;
-                const id = array.findIndex(hex => hex.xValue === selectedHex.x - 10);
+
+            const checkOddYValue = hexodd ? Math.round(hexodd.yValue) === yPos : false;
+            const checkEvenYValue = hexeven ? Math.round(hexeven.yValue) === yPos : false;
+
+            if (checkOddYValue || checkEvenYValue) {
+                isEven = checkEvenYValue;
+                const id = array.findIndex(hex => hex !== null && hex.xValue === selectedHex.x - 10);
                 const arrayId = hexPosArray.indexOf(array)
 
                 const arrayAbove = hexPosArray[arrayId - 1]
@@ -260,19 +264,20 @@
 
     function draw() {
         fctx.clearRect(0, 0, canvasFront.width, canvasFront.height);
-        if (currentHoveredHex) { drawHexagon(fctx, currentHoveredHex.x, currentHoveredHex.y, selectedPallete.hover, true); }
-        if (selectedHex) { drawHexagon(fctx, selectedHex.x, selectedHex.y, selectedPallete.base, true); }
         for (const hexobj of Object.values(otherHoveredHexes)) {
             drawHexagon( fctx, hexobj.x, hexobj.y, hexobj.color, true );
         }
+        if (selectedHex) { drawHexagon(fctx, selectedHex.x, selectedHex.y, selectedPallete.base, true); }
         for (const hex of moveableHexes) {
             if (hex) { drawHexagon(fctx, hex.xValue + 10, hex.yValue + 5, selectedPallete.light, true); }
         }
-        drawOtherPlayers()
+        if (currentHoveredHex) { drawHexagon(fctx, currentHoveredHex.x, currentHoveredHex.y, selectedPallete.hover, true); }
+        if (selectedHex) { drawPlayer(fctx, selectedHex.x, selectedHex.y, "#000000"); }
+        drawOtherMice()
         requestAnimationFrame(draw);
     }
 
-    function drawOtherPlayers() {
+    function drawOtherMice() {
         for (const { x, y, colour, name } of Object.values(others)) {
             fctx.beginPath();
             fctx.arc(x, y, 5, 0, Math.PI * 2);
@@ -285,8 +290,23 @@
     }
 
     function drawGrid(width, height) {
-        for (let y = r; y + r < height; y += r * Math.sin(a)) {
+        for (let y = r; y + (r * 3) < height; y += r * Math.sin(a)) {
             const currentRow = []
+            if (y + r * 4 > height) {
+                for (let x = r, j = 0; x + r < width; x += r * (1 + Math.cos(a)), 1 ** j++ * r * Math.sin(a)) {
+                    if (j % 2 === 0) {
+                        const posObj = {xValue: x, yValue: y}
+                        currentRow.push(posObj)
+                        drawHexagon(bctx, x + 10, y + 5, selectedPallete.hover, false);
+                    } else {
+                        currentRow.push(null)
+                    }
+                }
+
+                hexPosArray.push(currentRow);
+                continue
+            }
+
             for (let x = r, j = 0; x + r < width; x += r * (1 + Math.cos(a)), y += (-1) ** j++ * r * Math.sin(a)) {
 
                 const posObj = {xValue: x, yValue: y}
@@ -314,6 +334,13 @@
         ctx.stroke();
     }
 
+    function drawPlayer(ctx, x, y, color) {
+        ctx.beginPath();
+        ctx.arc(x, y, 8, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+    }
+
     function checkMousePosition(event) {
         const rect = canvasFront.getBoundingClientRect();
 
@@ -324,6 +351,7 @@
 
         for (const hexArray of hexPosArray) {
             for (const hex of hexArray) {
+                if (!hex) { continue; }
                 const x = hex.xValue
                 const y = hex.yValue
                 const distance = calculatePointDistance(x, y, mouseX, mouseY);
