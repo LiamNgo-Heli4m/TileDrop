@@ -44,18 +44,20 @@ wss.on("connection", (ws) => { // listens for a connection
 
             // PLEASE remember to break after switch statements
             switch (data.type) {
-                case "HEXAGRID_INFO":
+                case "HEXAGRID_INFO": {
                     const { hexaGrid } = data.payload;
                     hexaArray = hexaGrid
 
                     break;
-                case "RETURN_CLIENT_ID":
-                    const { id } = data.payload
+                }
+                case "RETURN_CLIENT_ID": {
+                    const {id} = data.payload
                     ws.clientId = id
                     idArray.push(id)
                     break;
-                case "UPDATE_MOUSE_POSITION":
-                    const { clientRoomId } = data.payload
+                }
+                case "UPDATE_MOUSE_POSITION": {
+                    const {clientRoomId} = data.payload
                     const clientRoomArray = rooms.get(clientRoomId)
                     for (const client of clientRoomArray) {
                         const clientSocket = client.socket
@@ -64,9 +66,10 @@ wss.on("connection", (ws) => { // listens for a connection
                         }
                     }
                     break;
+                }
 
-                case "REQUEST_SOCKET_RECONNECTION":
-                    const { reconnectRequestId, reconnectRequestRoomId} = data.payload;
+                case "REQUEST_SOCKET_RECONNECTION": {
+                    const {reconnectRequestId, reconnectRequestRoomId} = data.payload;
                     if (rooms.has(reconnectRequestRoomId)) {
                         const roomArray = rooms.get(reconnectRequestRoomId);
                         for (const room of roomArray) {
@@ -75,41 +78,77 @@ wss.on("connection", (ws) => { // listens for a connection
                             }
                         }
                     }
-                break;
+                    break;
+                }
 
                 // this system has to use the game.html's ws instead of index.html
                 // apparently it resets, and since it does, the ws reference doesnt point correctly, since the index.html ws has technically closed
                 // the big idea here is to store the clients id
-                case "CREATE_ROOM":
+                case "CREATE_ROOM": {
                     const roomId = makeID();
-                    const { clientId } = data.payload;
-                    const roomArray = [{ socket: ws, id: clientId}];
+                    const {clientId} = data.payload;
+                    const roomArray = [{socket: ws, id: clientId}];
                     rooms.set(roomId, roomArray);
 
                     const returnRoomId = {
                         type: "RETURN_ROOM_ID",
-                        payload: { id: roomId }
+                        payload: {id: roomId}
                     }
 
                     ws.send(JSON.stringify(returnRoomId));
 
                     break;
+                }
 
-                case "JOIN_ROOM":
-                    const { joinRoomId, joinClientId } = data.payload;
+                case "JOIN_ROOM": {
+                    const {joinRoomId, joinClientId} = data.payload;
 
                     if (rooms.has(joinRoomId)) {
                         const joinRoomArray = rooms.get(joinRoomId);
-                        joinRoomArray.push({ socket: ws, id: joinClientId });
+                        joinRoomArray.push({socket: ws, id: joinClientId});
 
                         const confirmJoinRoom = {
                             type: "CONFIRM_JOIN_ROOM",
-                            payload: { roomId: joinRoomId }
+                            payload: {roomId: joinRoomId}
                         }
 
                         ws.send(JSON.stringify(confirmJoinRoom));
                     }
                     break;
+                }
+
+                case "OWNER_INFO": {
+                    const {id, roomId} = data.payload;
+                    const clientArray = rooms.get(roomId);
+
+                    if (clientArray[0].id == id) {
+                        const confirmOwnership = {
+                            type: "CONFIRM_OWNERSHIP"
+                        }
+
+                        ws.send(JSON.stringify(confirmOwnership));
+                    }
+                    break;
+                }
+
+                case "REQUEST_GAME_START": {
+                    const { id, roomId } = data.payload;
+                    const clientArray = rooms.get(roomId);
+
+                    if (clientArray[0].id == id) {
+                        const confirmStart = {
+                            type: "CONFIRM_START"
+                        }
+
+                        for (const client of clientArray) {
+                            const clientSocket = client.socket
+                            if (clientSocket.readyState === WebSocket.OPEN) {
+                                clientSocket.send(JSON.stringify(confirmStart));
+                            }
+                        }
+                    }
+                }
+
             }
         } catch (error) {
             console.log("Failed to parse incoming message:", error);

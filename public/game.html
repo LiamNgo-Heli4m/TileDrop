@@ -7,6 +7,8 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Rosarivo:ital@0;1&family=Special+Elite&display=swap" rel="stylesheet">
 
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+
     <style>
         html, body {
             overflow: hidden;
@@ -140,7 +142,7 @@
             flex-direction: row;
 
             padding-top: 2vh;
-            transition: transform 0.5s ease-in-out;
+            transition: transform 0.75s ease-in-out;
 
             pointer-events: auto;
         }
@@ -152,7 +154,7 @@
 
         .waitingRoomButtons {
             font-family: "JetBrains Mono", monospace;
-            width: 50%;
+            font-size: 1.2rem;
             height: 5vh;
 
             background-color: #B2AC88;
@@ -164,6 +166,11 @@
 
         .buttonHover {
             background-color: #F5F5DC;
+        }
+
+        .notClickableButton {
+            background-color: #ABA796;
+            color: #404040;
         }
 
     </style>
@@ -185,14 +192,15 @@
             <h1 id="bigRoomCodeHolder"></h1>
         </div>
         <div id="buttonsHolder">
-            <button class="waitingRoomButtons" style="margin-right: 10px" id="leaveButton">LEAVE</button>
-            <button class="waitingRoomButtons" style="margin-left: 10px" id="startButton">START</button>
+            <button class="waitingRoomButtons" style="margin-right: 10px; width: 5%" id="leaveButton"><i class="material-icons">logout</i></button>
+            <button class="waitingRoomButtons" style="margin-left: 10px; width: 95%" id="startButton">START</button>
         </div>
     </div>
 
 </body>
 <script>
     let hasStarted = false;
+    let isOwner = false;
 
     const canvasBack = document.getElementById("canvasBack");
     const bctx = canvasBack.getContext("2d");
@@ -246,6 +254,8 @@
     const selectedPallete = playerColorPalettes[Math.floor(Math.random() * playerColorPalettes.length)];
     const dotColour = selectedPallete.base
 
+    startButton.classList.add("notClickableButton")
+
     canvasFront.addEventListener("pointermove", (e) => {
         const closestHex = checkMousePosition(e)
         currentHoveredHex = closestHex ? { x: closestHex.xValue + 10, y: closestHex.yValue + 5, color: selectedPallete.hover } : null;
@@ -258,7 +268,12 @@
     });
 
     startButton.addEventListener("click", (e) => {
-        animateAfterStarting()
+        const requestStart = {
+            type: "REQUEST_GAME_START",
+            payload: { id: me, roomId: roomId },
+        }
+
+        socket.send(JSON.stringify(requestStart));
     })
 
     function animateAfterStarting() {
@@ -280,8 +295,13 @@
             payload: { hexaGrid: hexPosArray },
         }
 
-        socket.send(JSON.stringify(sendHexaGridInformation));
+        const requestOwnerInformation = {
+            type: "OWNER_INFO",
+            payload: { id: me, roomId: roomId },
+        }
 
+        socket.send(JSON.stringify(sendHexaGridInformation));
+        socket.send(JSON.stringify(requestOwnerInformation));
         socket.send(JSON.stringify(requestSocketReconnection));
     }
 
@@ -290,22 +310,35 @@
             const data = JSON.parse(e.data);
 
             switch (data.type) {
-                case "REQUEST_CLIENT_ID":
+                case "REQUEST_CLIENT_ID": {
                     const identifier = {
                         type: "RETURN_CLIENT_ID",
-                        payload: { id: me }
+                        payload: {id: me}
                     }
                     if (socket.readyState !== WebSocket.OPEN) return;
                     socket.send(JSON.stringify(identifier));
                     break;
-                case "UPDATE_MOUSE_POSITION":
-                    const { id, x, y, colour, name, hoveredHex } = data.payload;
-                    others[id] = { x, y, colour, name };
+                }
+                case "UPDATE_MOUSE_POSITION": {
+                    const {id, x, y, colour, name, hoveredHex} = data.payload;
+                    others[id] = {x, y, colour, name};
                     otherHoveredHexes[id] = hoveredHex;
                     break;
-                case "DELETE_DISCONNECTED_ID":
-                    const { deleteID } = data.payload;
+                }
+                case "DELETE_DISCONNECTED_ID": {
+                    const {deleteID} = data.payload;
                     delete others[deleteID];
+                    break;
+                }
+                case "CONFIRM_OWNERSHIP": {
+                    startButton.classList.remove("notClickableButton");
+                    isOwner = true
+                    break;
+                }
+                case "CONFIRM_START": {
+                    console.log("starting");
+                    animateAfterStarting();
+                }
             }
         } catch (error) {
             console.log("Failed to parse incoming message:", error);
@@ -478,10 +511,12 @@
     }
 
     startButton.addEventListener("mouseover", (e) => {
+        if (!isOwner) { return; }
         startButton.classList.add("buttonHover");
     })
 
     startButton.addEventListener("mouseout", (e) => {
+        if (!isOwner) { return; }
         startButton.classList.remove("buttonHover");
     })
 
