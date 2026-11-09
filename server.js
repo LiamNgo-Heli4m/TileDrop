@@ -46,6 +46,7 @@ wss.on("connection", (ws) => { // listens for a connection
             switch (data.type) {
                 case "HEXAGRID_INFO":
                     const { hexaGrid } = data.payload;
+                    hexaArray = hexaGrid
 
                     break;
                 case "RETURN_CLIENT_ID":
