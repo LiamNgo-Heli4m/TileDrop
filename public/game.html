@@ -201,6 +201,7 @@
 <script>
     let hasStarted = false;
     let isOwner = false;
+    let playerCount = 0;
 
     const canvasBack = document.getElementById("canvasBack");
     const bctx = canvasBack.getContext("2d");
@@ -326,18 +327,31 @@
                     break;
                 }
                 case "DELETE_DISCONNECTED_ID": {
+                    playerCount -= 1
+
+                    if (playerCount <= 1) {
+                        startButton.classList.add("notClickableButton")
+                    }
+
                     const {deleteID} = data.payload;
                     delete others[deleteID];
                     break;
                 }
                 case "CONFIRM_OWNERSHIP": {
-                    startButton.classList.remove("notClickableButton");
+                    if (playerCount >= 2) {
+                        startButton.classList.remove("notClickableButton");
+                    }
                     isOwner = true
                     break;
                 }
                 case "CONFIRM_START": {
-                    console.log("starting");
                     animateAfterStarting();
+
+                    break;
+                }
+                case "NEW_PLAYER_INFO": {
+                    playerCount += 1
+                    startButton.classList.remove("notClickableButton");
                 }
             }
         } catch (error) {

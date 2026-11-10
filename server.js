@@ -104,6 +104,7 @@ wss.on("connection", (ws) => { // listens for a connection
                     const {joinRoomId, joinClientId} = data.payload;
 
                     if (rooms.has(joinRoomId)) {
+                        // let client join room
                         const joinRoomArray = rooms.get(joinRoomId);
                         joinRoomArray.push({socket: ws, id: joinClientId});
 
@@ -113,6 +114,19 @@ wss.on("connection", (ws) => { // listens for a connection
                         }
 
                         ws.send(JSON.stringify(confirmJoinRoom));
+
+                        // let everyone else receive player information
+                        const sendPlayerInformation = {
+                            type: "NEW_PLAYER_INFO",
+                            payload: { id: joinClientId }
+                        }
+
+                        for (const client of joinRoomArray) {
+                            const clientSocket = client.socket
+                            if (clientSocket !== ws && clientSocket.readyState === WebSocket.OPEN) {
+                                clientSocket.send(JSON.stringify(sendPlayerInformation)); // sends the data to every other client APART from the person who sent it
+                            }
+                        }
                     }
                     break;
                 }
@@ -135,18 +149,20 @@ wss.on("connection", (ws) => { // listens for a connection
                     const { id, roomId } = data.payload;
                     const clientArray = rooms.get(roomId);
 
-                    if (clientArray[0].id == id) {
-                        const confirmStart = {
-                            type: "CONFIRM_START"
-                        }
+                    if (clientArray.length < 2) { return; }
+                    if (clientArray[0].id != id) { return; }
 
-                        for (const client of clientArray) {
-                            const clientSocket = client.socket
-                            if (clientSocket.readyState === WebSocket.OPEN) {
-                                clientSocket.send(JSON.stringify(confirmStart));
-                            }
+                    const confirmStart = {
+                        type: "CONFIRM_START"
+                    }
+
+                    for (const client of clientArray) {
+                        const clientSocket = client.socket
+                        if (clientSocket.readyState === WebSocket.OPEN) {
+                            clientSocket.send(JSON.stringify(confirmStart));
                         }
                     }
+
                 }
 
             }
