@@ -224,7 +224,8 @@
 
     const roomCode = document.getElementById("roomCodeHolder");
     const bigRoomCode = document.getElementById("bigRoomCodeHolder");
-    const roomId = sessionStorage.getItem("roomId");
+    let roomId = sessionStorage.getItem("roomId");
+    roomId = roomId.toUpperCase()
     roomCode.textContent = roomId;
     bigRoomCode.textContent = roomId;
 
@@ -232,6 +233,7 @@
     let otherHoveredHexes = { }
     let selectedHex = null;
     let moveableHexes = [ ]
+    let currentPlayerPosition = null;
 
     const playerColorPalettes = [
         { base: "#D32F2F", light: "#FF8A80", hover: "#FFCDD2" },
@@ -345,6 +347,8 @@
                     break;
                 }
                 case "CONFIRM_START": {
+                    const { startPos } = data.payload;
+                    currentPlayerPosition = startPos;
                     animateAfterStarting();
 
                     break;
@@ -418,12 +422,12 @@
         for (const hexobj of Object.values(otherHoveredHexes)) {
             drawHexagon( fctx, hexobj.x, hexobj.y, hexobj.color, true );
         }
-        if (selectedHex) { drawHexagon(fctx, selectedHex.x, selectedHex.y, selectedPallete.base, true); }
         for (const hex of moveableHexes) {
             if (hex) { drawHexagon(fctx, hex.xValue + 10, hex.yValue + 5, selectedPallete.light, true); }
         }
         if (currentHoveredHex) { drawHexagon(fctx, currentHoveredHex.x, currentHoveredHex.y, selectedPallete.hover, true); }
         if (selectedHex) { drawPlayer(fctx, selectedHex.x, selectedHex.y, "#000000"); }
+        if (currentPlayerPosition) { drawPlayer(fctx, currentPlayerPosition.xValue + 10, currentPlayerPosition.yValue + 5, selectedPallete.base); }
         drawOtherMice()
         requestAnimationFrame(draw);
     }

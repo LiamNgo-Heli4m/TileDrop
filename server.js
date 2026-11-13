@@ -103,9 +103,11 @@ wss.on("connection", (ws) => { // listens for a connection
                 case "JOIN_ROOM": {
                     const {joinRoomId, joinClientId} = data.payload;
 
-                    if (rooms.has(joinRoomId)) {
+                    if (rooms.has(joinRoomId.toUpperCase())) {
                         // let client join room
-                        const joinRoomArray = rooms.get(joinRoomId);
+                        const joinRoomArray = rooms.get(joinRoomId.toUpperCase());
+                        if (joinRoomArray.length > 3) { return; }
+
                         joinRoomArray.push({socket: ws, id: joinClientId});
 
                         const confirmJoinRoom = {
@@ -152,14 +154,25 @@ wss.on("connection", (ws) => { // listens for a connection
                     if (clientArray.length < 2) { return; }
                     if (clientArray[0].id != id) { return; }
 
-                    const confirmStart = {
-                        type: "CONFIRM_START"
-                    }
+                    const firstRow = hexaArray[0]
+                    const lastRow = hexaArray[hexaArray.length - 1]
+
+                    const startGamePositions = [
+                        firstRow[0],
+                        firstRow[firstRow.length - 1],
+                        lastRow[0],
+                        lastRow[lastRow.length - 1]
+                    ]
 
                     for (const client of clientArray) {
+                        const confirmStart = {
+                            type: "CONFIRM_START",
+                            payload: { startPos: startGamePositions[0]}
+                        }
                         const clientSocket = client.socket
                         if (clientSocket.readyState === WebSocket.OPEN) {
                             clientSocket.send(JSON.stringify(confirmStart));
+                            startGamePositions.shift()
                         }
                     }
 
